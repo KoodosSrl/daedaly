@@ -1,0 +1,64 @@
+<odoo>
+  <record id="daedaly_project_documentation_list" model="ir.ui.view">
+    <field name="name">project.documentation.list</field>
+    <field name="model">project.documentation</field>
+    <field name="arch" type="xml">
+      <list sample="1">
+        <field name="name"/>
+        <field name="doc_date"/>
+        <field name="filename" column_invisible="True"/>
+        <field name="file" filename="filename"/>
+      </list>
+    </field>
+  </record>
+  <record id="daedaly_view_project_form_inherit_documentation" model="ir.ui.view">
+    <field name="name">project.project.form.documentation</field>
+    <field name="model">project.project</field>
+    <field name="inherit_id" ref="project.edit_project"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='user_id']" position="after">
+        <field name="team_employee_ids" widget="many2many_tags"/>
+      </xpath>
+      <xpath expr="//page[@name='settings']" position="after">
+        <page name="documentation" string="Documentation">
+          <field name="documentation_ids">
+            <list editable="bottom">
+              <field name="name"/>
+              <field name="doc_date"/>
+              <field name="filename" column_invisible="True"/>
+              <field name="file" filename="filename"/>
+            </list>
+          </field>
+          <separator/>
+          <group>
+            <field name="pm_framework"/>
+            <button name="action_smart_description" type="object" string="Go Daedaly" class="btn-primary o_button_daedaly"/>
+            <button name="action_generate_tasks" type="object" string="Generate Tasks" class="btn-secondary o_button_daedaly"/>
+          </group>
+          <separator/>
+          <group>
+            <field name="economic_notes" widget="html"/>
+            <field name="criticita" widget="html"/>
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- Tree inheritance removed temporarily: base xmlid not found in Odoo 18 env -->
+
+  <!-- Inherit project kanban to show PM Framework badge -->
+  <record id="daedaly_view_project_kanban_inherit" model="ir.ui.view">
+    <field name="name">project.project.kanban.inherit.daedaly</field>
+    <field name="model">project.project</field>
+    <field name="inherit_id" ref="project.view_project_kanban"/>
+    <field name="arch" type="xml">
+      <xpath expr="//kanban" position="attributes">
+        <attribute name="action">action_open_project_form</attribute>
+      </xpath>
+      <xpath expr="//kanban" position="inside">
+        <field name="pm_framework" invisible="1"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

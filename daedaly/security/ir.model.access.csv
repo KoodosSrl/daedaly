@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_project_documentation_user,access.project.documentation.user,model_project_documentation,base.group_user,1,1,1,1
+access_project_documentation_admin,access.project.documentation.admin,model_project_documentation,base.group_system,1,1,1,1
+access_task_documentation_user,access.task.documentation.user,model_task_documentation,base.group_user,1,1,1,1
+access_task_documentation_admin,access.task.documentation.admin,model_task_documentation,base.group_system,1,1,1,1
+access_daedaly_test_api_connection_user,access.daedaly.test_api_connection.user,model_daedaly_test_api_connection,base.group_user,1,1,1,1
+access_daedaly_test_api_connection_admin,access.daedaly.test_api_connection.admin,model_daedaly_test_api_connection,base.group_system,1,1,1,1

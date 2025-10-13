@@ -1,0 +1,16 @@
+.o_button_daedaly {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.o_button_daedaly::before {
+    content: "";
+    width: 18px;
+    height: 18px;
+    background-image: url("/daedaly/static/img/deadly.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    flex-shrink: 0;
+}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit_daedaly" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.daedaly</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <group string="Daedaly">
+                    <field name="daedaly_agent_url" placeholder="http://localhost:8001"/>
+                    <field name="gemini_model"
+                           modifiers="{'invisible': [('what_gpt_use', '!=', 'gemini')]}"
+                           placeholder="models/gemini-flash-latest"/>
+                    <field name="deepseek_model"
+                           modifiers="{'invisible': [('what_gpt_use', '!=', 'deepseek')]}"
+                           placeholder="deepseek-chat"/>
+                    <field name="local_gateway_url"
+                           modifiers="{'invisible': [('what_gpt_use', '!=', 'local')]}"
+                           placeholder="http://localhost:11434/api/generate"/>
+                    <field name="local_model_name"
+                           modifiers="{'invisible': [('what_gpt_use', '!=', 'local')]}"
+                           placeholder="llama3"/>
+                    <field name="local_extra_headers"
+                           modifiers="{'invisible': [('what_gpt_use', '!=', 'local')]}"
+                           placeholder='{"Authorization": "Bearer ..."}'/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

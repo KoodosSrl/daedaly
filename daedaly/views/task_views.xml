@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="daedaly_task_documentation_list" model="ir.ui.view">
+    <field name="name">task.documentation.list</field>
+    <field name="model">task.documentation</field>
+    <field name="arch" type="xml">
+      <list sample="1">
+        <field name="name"/>
+        <field name="doc_date"/>
+        <field name="filename" column_invisible="True"/>
+        <field name="file" filename="filename"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="daedaly_view_task_form_inherit" model="ir.ui.view">
+    <field name="name">project.task.form.inherit.daedaly</field>
+    <field name="model">project.task</field>
+    <field name="inherit_id" ref="project.view_task_form2"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet/notebook" position="inside">
+        <page name="documentation" string="Documentation">
+          <field name="documentation_ids">
+            <list editable="bottom">
+              <field name="name"/>
+              <field name="doc_date"/>
+              <field name="filename" column_invisible="True"/>
+              <field name="file" filename="filename"/>
+            </list>
+          </field>
+        </page>
+        <page name="ai_help" string="AI Helper">
+          <group>
+            <button name="action_task_smart_description" type="object" string="Smart Description" class="btn-primary o_button_daedaly"/>
+            <button name="action_task_smart_todo" type="object" string="Smart ToDo" class="btn-secondary o_button_daedaly"/>
+          </group>
+          <separator/>
+          <field name="todo_html" widget="html"/>
+        </page>
+      </xpath>
+    </field>
+  </record>
+</odoo>
