@@ -127,6 +127,88 @@ class Project(models.Model):
             profiles.append((employee, profile_text))
         return profiles
 
+    def _compose_team_prompt_section(self, include_assignment_guidance=False, include_analysis_focus=False):
+        """Return a textual section describing PM/team profiles for AI prompts."""
+        self.ensure_one()
+        team_profiles = list(self._get_team_profiles())
+        manager_employee = self.user_id.employee_id if self.user_id and self.user_id.employee_id else False
+        manager_entry = None
+        if manager_employee:
+            for idx, (employee, profile) in enumerate(team_profiles):
+                if employee.id == manager_employee.id:
+                    manager_entry = (employee, profile)
+                    team_profiles.pop(idx)
+                    break
+
+        if not manager_entry and not team_profiles:
+            if include_assignment_guidance:
+                return (
+                    "Non è stato fornito alcun profilo team; usa il campo \"assignee\" vuoto oppure il project manager se opportuno.\n\n"
+                )
+            if include_analysis_focus:
+                return (
+                    "Non sono disponibili profili del project manager o del team da considerare per l'analisi.\n\n"
+                )
+            return ""
+
+        lines = []
+        if include_analysis_focus:
+            lines.append(
+                "Considera le competenze del project manager e del team riportati di seguito per calibrare l'analisi, la ripartizione delle responsabilità e la gestione dei rischi."
+            )
+
+        def _contact_bits(employee):
+            bits = []
+            if employee.work_email:
+                bits.append(f"email: {employee.work_email}")
+            if employee.work_phone:
+                bits.append(f"tel: {employee.work_phone}")
+            if employee.mobile_phone:
+                bits.append(f"mobile: {employee.mobile_phone}")
+            if employee.user_id and employee.user_id.login:
+                bits.append(f"login: {employee.user_id.login}")
+            return f" ({', '.join(bits)})" if bits else ""
+
+        if manager_entry:
+            manager_employee_record, manager_profile = manager_entry
+            lines.append(f"- {manager_employee_record.display_name} (Project Manager){_contact_bits(manager_employee_record)}")
+            if manager_profile:
+                lines.append(f"  Profilo professionale PM:\n{manager_profile}")
+            else:
+                lines.append("  Profilo professionale PM: nessuna descrizione fornita.")
+        elif include_assignment_guidance:
+            lines.append("Project manager non specificato tra i profili disponibili.")
+
+        if team_profiles:
+            heading = (
+                "Membri del team disponibili per l'assegnazione delle task:"
+                if include_assignment_guidance
+                else "Membri del team coinvolti nel progetto:"
+            )
+            lines.append(heading)
+            for employee, profile in team_profiles:
+                lines.append(f"- {employee.display_name}{_contact_bits(employee)}")
+                if profile:
+                    lines.append(f"  Profilo professionale:\n{profile}")
+                else:
+                    lines.append("  Profilo professionale: nessuna descrizione fornita.")
+
+        if include_assignment_guidance:
+            lines.append(
+                "Quando restituisci le attività, utilizza il campo \"assignee\" con il nome esatto del membro più adatto tra quelli sopra indicati. "
+                "Non inventare nomi o ruoli: scegli sempre tra i nomi elencati, a meno che nessuno sia adeguato."
+            )
+            lines.append(
+                "La profondità della descrizione della task deve riflettere quanto è dettagliato il profilo dell'utente assegnato: "
+                "ricco e articolato per profili completi, più sintetico per profili essenziali."
+            )
+            lines.append(
+                "Se nessun membro elencato è adeguato, spiega perché e lascia l'assignee vuoto anziché inserire nomi non presenti."
+            )
+
+        section = "\n".join(lines).strip()
+        return f"{section}\n\n" if section else ""
+
     def _format_description(self, desc):
         """Render a rich, human friendly project description from AI output."""
         if not desc:
@@ -283,7 +365,15 @@ class Project(models.Model):
                 f"{company_profile}\n\n"
             )
 
+        team_section = self._compose_team_prompt_section(include_analysis_focus=True)
+        if team_section:
+            prompt += team_section
+
         prompt += (
+            "La chiave \"description\" deve fornire una narrazione completa: almeno 8 frasi distribuite in 2 o più paragrafi, "
+            "con riferimento a contesto, obiettivi, stakeholder, stato di avanzamento, rischi mitigati e prossimi passi.\n"
+            "La chiave \"criticita\" deve contenere un elenco puntuale di almeno 3 criticità, ciascuna descritta con una frase che espliciti impatto e azioni correttive.\n"
+            "Evita frasi sintetiche o titoli: fornisci sempre contenuti ricchi e spiegati.\n\n"
             "RESTITUISCI SOLO JSON VALIDO, senza backticks e senza testo extra, con struttura ESATTA:\n"
             "{\n"
             "  \"description\": \"analisi completa del progetto\",\n"
@@ -301,37 +391,7 @@ class Project(models.Model):
 
     def _build_task_prompt(self):
         company_profile = self._get_company_profile_text()
-        team_profiles = self._get_team_profiles()
-        team_section = ""
-        if team_profiles:
-            team_section += "Membri del team disponibili per l'assegnazione delle task:\n"
-            for employee, profile in team_profiles:
-                contact_bits = []
-                if employee.work_email:
-                    contact_bits.append(f"email: {employee.work_email}")
-                if employee.work_phone:
-                    contact_bits.append(f"tel: {employee.work_phone}")
-                if employee.mobile_phone:
-                    contact_bits.append(f"mobile: {employee.mobile_phone}")
-                if employee.user_id:
-                    if employee.user_id.login:
-                        contact_bits.append(f"login: {employee.user_id.login}")
-                contact_info = f" ({', '.join(contact_bits)})" if contact_bits else ""
-                team_section += f"- {employee.display_name}{contact_info}\n"
-                if profile:
-                    team_section += f"  Profilo professionale:\n{profile}\n"
-                else:
-                    team_section += "  Profilo professionale: nessuna descrizione fornita.\n"
-            team_section += (
-                "Quando restituisci le attività, utilizza il campo \"assignee\" con il nome esatto del membro più adatto tra quelli sopra indicati. "
-                "Non inventare nomi o ruoli: scegli sempre tra i nomi elencati, a meno che nessuno sia adeguato.\n"
-                "La profondità della descrizione della task deve riflettere quanto è dettagliato il profilo dell'utente assegnato: "
-                "profonda e articolata per profili ricchi di dettagli, più sintetica per profili essenziali.\n\n"
-            )
-        else:
-            team_section += (
-                "Non è stato fornito alcun profilo team; usa il campo \"assignee\" vuoto oppure il project manager se opportuno.\n\n"
-            )
+        team_section = self._compose_team_prompt_section(include_assignment_guidance=True)
 
         fw = (self.pm_framework or '').lower()
         if fw == 'prince2':
@@ -409,6 +469,7 @@ class Project(models.Model):
         prompt += (
             "Per ogni task assegna il membro del team più idoneo utilizzando esclusivamente i nomi elencati. "
             "Se nessun profilo è pertinente lascia l'assignee vuoto.\n"
+            "Evita di creare o ripetere nomi non presenti nella lista: se noti lacune nelle competenze disponibili, segnala la criticità invece di scegliere un nome arbitrario.\n"
             "Scrivi titoli e descrizioni in testo semplice, senza markdown o formattazioni (niente **grassetto**, *corsivo*, codice o simboli speciali).\n\n"
         )
 

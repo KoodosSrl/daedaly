@@ -18,7 +18,7 @@ Modulo Odoo che unifica configurazioni IA e funzionalità di supporto ai progett
 1. Assicurati che le dipendenze Python siano disponibili nell’ambiente di Odoo.
 2. Copia la cartella `daedaly` tra gli addons e aggiorna l’elenco app.
 3. Installa “Daedaly”.
-4. (Migrazione) Se avevi i moduli `sof_ia_base`/`sof_ia_project`, disinstallali: questo modulo li sostituisce. Le chiavi di configurazione sono state rinominate (usa le nuove chiavi in Impostazioni → Daedaly).
+4. Verifica di rimuovere eventuali moduli legacy che coprono funzionalità simili prima di installare Daedaly. Le chiavi di configurazione sono state rinominate (usa le nuove chiavi in Impostazioni → Daedaly).
 
 ## Configurazione
 - Vai su Impostazioni → Daedaly (menu in basso sotto Configurazione).
@@ -93,8 +93,8 @@ Se le chiamate al provider AI falliscono, il modulo può interrogare un endpoint
 - Il parsing JSON è robusto (rileva blocchi json tra backticks o la porzione tra `{` e `}`), ma in caso di output non conforme si ricade su testi grezzi.
 
 ## Note di Migrazione
-- Le precedenti chiavi config `sof_ia_*` sono sostituite dalle nuove chiavi `daedaly.*`.
-- Disinstalla i vecchi moduli `sof_ia_base` e `sof_ia_project` prima di usare `Daedaly`.
+- Le precedenti chiavi config di eventuali soluzioni legacy sono sostituite dalle nuove chiavi `daedaly.*`.
+- Disinstalla i vecchi moduli che sovrappongono le stesse funzionalità prima di usare `Daedaly`.
 
 ---
 Per suggerimenti o estensioni (badge colorati per framework, traduzioni, ulteriori provider), apri una issue o proponi una PR.

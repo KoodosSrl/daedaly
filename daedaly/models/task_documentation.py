@@ -42,9 +42,41 @@ class ProjectTask(models.Model):
             text += f"\nDocumento task data: {doc.doc_date}, chiamato: {doc.name}\nContenuto:\n{content}\n"
         return text
 
+    def _render_assignee_profiles(self):
+        """Return a textual summary of the assignee profiles to guide AI prompts."""
+        self.ensure_one()
+        users = self.user_ids
+        if self.user_id:
+            users |= self.user_id
+        employees = users.mapped('employee_id')
+        lines = []
+        seen = set()
+        for employee in employees:
+            if not employee or employee.id in seen:
+                continue
+            seen.add(employee.id)
+            contact_bits = []
+            if employee.work_email:
+                contact_bits.append(f"email: {employee.work_email}")
+            if employee.work_phone:
+                contact_bits.append(f"tel: {employee.work_phone}")
+            if employee.mobile_phone:
+                contact_bits.append(f"mobile: {employee.mobile_phone}")
+            if employee.user_id and employee.user_id.login:
+                contact_bits.append(f"login: {employee.user_id.login}")
+            contact_info = f" ({', '.join(contact_bits)})" if contact_bits else ""
+            lines.append(f"- {employee.display_name}{contact_info}")
+            profile_text = (employee.progett_ai_description or '').strip()
+            if profile_text:
+                lines.append(f"  Profilo professionale:\n{profile_text}")
+            else:
+                lines.append("  Profilo professionale: nessuna descrizione fornita.")
+        return "\n".join(lines)
+
     def action_task_smart_description(self):
         for task in self:
             context_docs = task._build_task_docs_context()
+            assignee_profiles = task._render_assignee_profiles()
             prompt = (
                 "Sei un project manager senior. In base alla descrizione attuale della task e ai documenti allegati, "
                 "scrivi una DESCRIZIONE SOMMARIA e generale della task (non un verbale). La descrizione deve chiarire obiettivo, contesto, criteri di accettazione, dipendenze e rischi. "
@@ -53,8 +85,17 @@ class ProjectTask(models.Model):
                 "{\n"
                 "  \"description\": \"testo descrittivo della task\"\n"
                 "}\n\n"
-                f"Descrizione attuale task:\n{task.description or ''}\n\nDocumenti:\n{context_docs}"
             )
+            if assignee_profiles:
+                prompt += (
+                    "Profilo dell'assegnatario (adatta tono, livello di dettaglio e focus tecnico a queste competenze):\n"
+                    f"{assignee_profiles}\n\n"
+                )
+            else:
+                prompt += (
+                    "Non è disponibile un profilo dell'assegnatario; fornisci indicazioni comprensibili anche a un team multidisciplinare.\n\n"
+                )
+            prompt += f"Descrizione attuale task:\n{task.description or ''}\n\nDocumenti:\n{context_docs}"
             text = self.env['daedaly.gpt_api_helper'].chat(prompt)
             try:
                 import json, re
@@ -67,11 +108,21 @@ class ProjectTask(models.Model):
     def action_task_smart_todo(self):
         for task in self:
             context_docs = task._build_task_docs_context()
+            assignee_profiles = task._render_assignee_profiles()
             prompt = (
                 "Agisci come un team lead. Genera una lista di passi operativi (breve, azionabile, in ordine logico) per completare la task. "
                 "Restituisci SOLO JSON valido con struttura esatta: {\"items\": [\"step 1\", \"step 2\"]}. Nessun testo extra.\n\n"
-                f"Descrizione task:\n{task.description or ''}\n\nDocumenti:\n{context_docs}\n\n"
             )
+            if assignee_profiles:
+                prompt += (
+                    "Adatta il livello di dettaglio e l'ordine delle azioni alle competenze dell'assegnatario indicato di seguito:\n"
+                    f"{assignee_profiles}\n\n"
+                )
+            else:
+                prompt += (
+                    "Non è disponibile un profilo dell'assegnatario; proponi passi chiari e autoconclusivi adatti a un team eterogeneo.\n\n"
+                )
+            prompt += f"Descrizione task:\n{task.description or ''}\n\nDocumenti:\n{context_docs}\n\n"
             text = self.env['daedaly.gpt_api_helper'].chat(prompt) or ''
             import json, re
             items = []

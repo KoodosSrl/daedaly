@@ -6,7 +6,7 @@
     "summary": "Project and task AI helpers with unified configuration",
     "depends": ["project", "hr"],
     "external_dependencies": {
-        "python": ["fitz", "requests"]
+        "python": ["requests"]
     },
     "data": [
         "security/ir.model.access.csv",
