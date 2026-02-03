@@ -1,6 +1,7 @@
 from odoo import models, fields
 from odoo.exceptions import UserError
 import base64
+import html as _html
 
 try:
     import fitz  # PyMuPDF
@@ -95,7 +96,18 @@ class ProjectTask(models.Model):
                 prompt += (
                     "Non è disponibile un profilo dell'assegnatario; fornisci indicazioni comprensibili anche a un team multidisciplinare.\n\n"
                 )
-            prompt += f"Descrizione attuale task:\n{task.description or ''}\n\nDocumenti:\n{context_docs}"
+
+            # Aggiungi contesto della descrizione esistente per arricchirla
+            import re
+            existing_desc = task.description or ''
+            # Rimuovi tag HTML per passare testo leggibile
+            existing_desc_text = re.sub(r'<[^>]+>', '', existing_desc).strip()
+            if existing_desc_text:
+                prompt += (
+                    "IMPORTANTE: La task ha già una descrizione. "
+                    "Devi ARRICCHIRE e INTEGRARE quanto già scritto, non sovrascrivere completamente.\n\n"
+                )
+            prompt += f"Descrizione attuale task:\n{existing_desc_text or '(nessuna)'}\n\nDocumenti:\n{context_docs}"
             text = self.env['daedaly.gpt_api_helper'].chat(prompt)
             try:
                 import json, re
@@ -122,6 +134,18 @@ class ProjectTask(models.Model):
                 prompt += (
                     "Non è disponibile un profilo dell'assegnatario; proponi passi chiari e autoconclusivi adatti a un team eterogeneo.\n\n"
                 )
+
+            # Aggiungi contesto della todo list esistente per arricchirla
+            import re
+            existing_todo = task.todo_html or ''
+            existing_todo_text = re.sub(r'<[^>]+>', '', existing_todo).strip()
+            if existing_todo_text:
+                prompt += (
+                    "IMPORTANTE: La task ha già una lista di passi. "
+                    "Devi ARRICCHIRE e INTEGRARE quanto già presente, aggiungendo passi mancanti o dettagliando quelli esistenti.\n"
+                    f"Lista attuale:\n{existing_todo_text}\n\n"
+                )
+
             prompt += f"Descrizione task:\n{task.description or ''}\n\nDocumenti:\n{context_docs}\n\n"
             text = self.env['daedaly.gpt_api_helper'].chat(prompt) or ''
             import json, re
@@ -147,7 +171,8 @@ class ProjectTask(models.Model):
             if items:
                 lis = []
                 for i in items:
-                    lis.append(f'<li>{i}</li>')
+                    # Escape HTML per prevenire XSS
+                    lis.append(f'<li>{_html.escape(str(i))}</li>')
                 task.todo_html = '<ul class="o_todo_list">' + ''.join(lis) + '</ul>'
             else:
                 task.todo_html = ''

@@ -210,103 +210,113 @@ class Project(models.Model):
         return f"{section}\n\n" if section else ""
 
     def _format_description(self, desc):
-        """Render a rich, human friendly project description from AI output."""
+        """Render a rich, human friendly project description from AI output as valid HTML."""
         if not desc:
             return ''
         if isinstance(desc, str):
-            return desc.strip()
+            # Converti testo plain in HTML con paragrafi
+            text = desc.strip()
+            if not text:
+                return ''
+            # Escape caratteri speciali HTML
+            text = _html.escape(text)
+            # Converti doppi newline in paragrafi, singoli newline in <br/>
+            paragraphs = text.split('\n\n')
+            html_parts = []
+            for para in paragraphs:
+                para = para.strip()
+                if para:
+                    # Sostituisci singoli newline con <br/>
+                    para = para.replace('\n', '<br/>')
+                    html_parts.append(f"<p>{para}</p>")
+            return ''.join(html_parts)
+
         if isinstance(desc, (list, tuple)):
-            lines = []
+            items = []
             for item in desc:
-                line = self._format_description(item)
-                if line:
-                    for sub_line in line.splitlines():
-                        lines.append(f"- {sub_line}" if not sub_line.startswith("-") else sub_line)
-            return "\n".join(lines)
+                formatted = self._format_description(item)
+                if formatted:
+                    # Rimuovi tag p per metterlo in li
+                    clean = formatted.replace('<p>', '').replace('</p>', '')
+                    items.append(f"<li>{clean}</li>")
+            return f"<ul>{''.join(items)}</ul>" if items else ''
+
         if not isinstance(desc, dict):
-            return str(desc)
+            text = _html.escape(str(desc))
+            return f"<p>{text}</p>"
 
         parts = []
         get = desc.get
 
         if get('nome_progetto'):
-            parts.append(f"Nome progetto: {get('nome_progetto')}")
+            parts.append(f"<p><strong>Nome progetto:</strong> {_html.escape(str(get('nome_progetto')))}</p>")
         if get('obiettivi_prodotto'):
-            parts.append(f"Obiettivi del prodotto:\n  {get('obiettivi_prodotto')}")
+            parts.append(f"<p><strong>Obiettivi del prodotto:</strong><br/>{_html.escape(str(get('obiettivi_prodotto')))}</p>")
         if get('framework'):
-            parts.append(f"Framework di lavoro: {get('framework')}")
+            parts.append(f"<p><strong>Framework di lavoro:</strong> {_html.escape(str(get('framework')))}</p>")
 
         milestones = get('fasi_milestone') or []
         if milestones:
-            lines = ["Fasi e milestone principali:"]
+            items = []
             for milestone in milestones:
                 fase = milestone.get('fase')
                 target = milestone.get('data_target')
                 if fase:
-                    label = f"- {fase}"
+                    label = _html.escape(str(fase))
                     if target:
-                        label += f" (target: {target})"
-                    lines.append(label)
-            parts.append("\n".join(lines))
+                        label += f" <em>(target: {_html.escape(str(target))})</em>"
+                    items.append(f"<li>{label}</li>")
+            if items:
+                parts.append(f"<p><strong>Fasi e milestone principali:</strong></p><ul>{''.join(items)}</ul>")
 
         struttura_scrum = get('struttura_scrum') or {}
         if struttura_scrum:
-            scrum_lines = ["Struttura Scrum:"]
+            scrum_html = ["<p><strong>Struttura Scrum:</strong></p>"]
             ruoli = struttura_scrum.get('ruoli') or {}
             if ruoli:
-                scrum_lines.append("  Ruoli:")
                 label_map = {
                     'product_owner': 'Product Owner',
                     'scrum_master': 'Scrum Master',
                     'team_di_sviluppo': 'Team di sviluppo',
                 }
+                items = []
                 for key, value in ruoli.items():
                     if value:
-                        scrum_lines.append(f"    - {label_map.get(key, key.replace('_', ' ').title())}: {value}")
-            backlog = struttura_scrum.get('backlog_e_priorita') or {}
-            if backlog:
-                scrum_lines.append("  Backlog e priorità:")
-                for key, value in backlog.items():
-                    if value:
-                        scrum_lines.append(f"    - {value}")
+                        items.append(f"<li><strong>{_html.escape(label_map.get(key, key.replace('_', ' ').title()))}:</strong> {_html.escape(str(value))}</li>")
+                if items:
+                    scrum_html.append(f"<p>Ruoli:</p><ul>{''.join(items)}</ul>")
             obiettivi = struttura_scrum.get('obiettivi_sprint') or []
             if obiettivi:
-                scrum_lines.append("  Obiettivi di sprint:")
-                for ob in obiettivi:
-                    if ob:
-                        scrum_lines.append(f"    - {ob}")
+                items = [f"<li>{_html.escape(str(ob))}</li>" for ob in obiettivi if ob]
+                if items:
+                    scrum_html.append(f"<p>Obiettivi di sprint:</p><ul>{''.join(items)}</ul>")
             cerimonie = struttura_scrum.get('cerimonie_chiave') or []
             if cerimonie:
-                scrum_lines.append("  Cerimonie chiave:")
-                for ce in cerimonie:
-                    if ce:
-                        scrum_lines.append(f"    - {ce}")
+                items = [f"<li>{_html.escape(str(ce))}</li>" for ce in cerimonie if ce]
+                if items:
+                    scrum_html.append(f"<p>Cerimonie chiave:</p><ul>{''.join(items)}</ul>")
             if struttura_scrum.get('definition_of_done'):
-                scrum_lines.append(f"  Definition of Done: {struttura_scrum.get('definition_of_done')}")
-            parts.append("\n".join(scrum_lines))
+                scrum_html.append(f"<p><strong>Definition of Done:</strong> {_html.escape(str(struttura_scrum.get('definition_of_done')))}</p>")
+            parts.append(''.join(scrum_html))
 
         dipendenze = get('dipendenze_interne_esterne') or {}
         if dipendenze:
-            dip_lines = ["Dipendenze e integrazioni:"]
+            dip_html = ["<p><strong>Dipendenze e integrazioni:</strong></p>"]
             if dipendenze.get('dipendenze_critiche'):
-                dip_lines.append("  Dipendenze critiche:")
-                for item in dipendenze['dipendenze_critiche']:
-                    if item:
-                        dip_lines.append(f"    - {item}")
+                items = [f"<li>{_html.escape(str(item))}</li>" for item in dipendenze['dipendenze_critiche'] if item]
+                if items:
+                    dip_html.append(f"<p>Dipendenze critiche:</p><ul>{''.join(items)}</ul>")
             if dipendenze.get('integrazioni_esterne'):
-                dip_lines.append("  Integrazioni esterne:")
-                for item in dipendenze['integrazioni_esterne']:
-                    if item:
-                        dip_lines.append(f"    - {item}")
-            parts.append("\n".join(dip_lines))
+                items = [f"<li>{_html.escape(str(item))}</li>" for item in dipendenze['integrazioni_esterne'] if item]
+                if items:
+                    dip_html.append(f"<p>Integrazioni esterne:</p><ul>{''.join(items)}</ul>")
+            parts.append(''.join(dip_html))
 
         rischi = get('rischi_tecnici_operativi') or []
         if rischi:
-            risk_lines = ["Rischi principali:"]
-            for risk in rischi:
-                if risk:
-                    risk_lines.append(f"- {risk}")
-            parts.append("\n".join(risk_lines))
+            items = [f"<li>{_html.escape(str(risk))}</li>" for risk in rischi if risk]
+            if items:
+                parts.append(f"<p><strong>Rischi principali:</strong></p><ul>{''.join(items)}</ul>")
 
         # Include any leftover keys not explicitly handled
         handled_keys = {
@@ -319,22 +329,46 @@ class Project(models.Model):
                 continue
             formatted = self._format_description(value)
             if formatted:
-                parts.append(f"{key.replace('_', ' ').title()}:\n{formatted}")
+                title = _html.escape(key.replace('_', ' ').title())
+                parts.append(f"<p><strong>{title}:</strong></p>{formatted}")
 
-        formatted = "\n\n".join(part.strip() for part in parts if part)
-        if not formatted:
-            return ''
-        # Ensure the description has at least five non-empty lines; if not, ask AI to elaborate more next time.
-        lines = [line for line in formatted.splitlines() if line.strip() and not line.strip().startswith("Nota:")]
-        if len(lines) < 5:
-            formatted = f"{formatted}\n\nNota: arricchisci i prossimi resoconti con maggiori dettagli narrativi (minimo 5 righe)."
-        return formatted
+        return ''.join(parts)
 
     def _build_meeting_prompt(self):
         prompt = (
             "Sei un project manager senior. In base ai documenti forniti, produci un'analisi completa del progetto.\n"
             "Adatta il taglio al framework di project management selezionato.\n\n"
         )
+
+        # Aggiungi contesto dei valori già presenti per permettere all'AI di arricchirli
+        existing_context_parts = []
+        if self.description:
+            # Rimuovi tag HTML per passare testo leggibile
+            import re
+            desc_text = re.sub(r'<[^>]+>', '', self.description or '').strip()
+            if desc_text:
+                existing_context_parts.append(f"Descrizione attuale del progetto:\n{desc_text}")
+        if self.economic_notes:
+            notes_text = re.sub(r'<[^>]+>', '', self.economic_notes or '').strip()
+            if notes_text:
+                existing_context_parts.append(f"Note economiche attuali:\n{notes_text}")
+        if self.criticita:
+            crit_text = re.sub(r'<[^>]+>', '', self.criticita or '').strip()
+            if crit_text:
+                existing_context_parts.append(f"Criticità attuali:\n{crit_text}")
+        if self.tag_ids:
+            existing_tags = ', '.join(self.tag_ids.mapped('name'))
+            existing_context_parts.append(f"Tag attuali: {existing_tags}")
+
+        if existing_context_parts:
+            prompt += (
+                "IMPORTANTE: Il progetto ha già dei contenuti compilati. "
+                "Devi ARRICCHIRE e INTEGRARE quanto già scritto, non sovrascrivere. "
+                "Mantieni le informazioni esistenti e aggiungine di nuove basandoti sui documenti.\n\n"
+                "CONTENUTI ESISTENTI DA ARRICCHIRE:\n"
+                + "\n\n".join(existing_context_parts)
+                + "\n\n---\n\n"
+            )
         # Istruzioni dinamiche per framework
         fw = (self.pm_framework or '').lower()
         if fw == 'prince2':
@@ -472,6 +506,18 @@ class Project(models.Model):
             "Evita di creare o ripetere nomi non presenti nella lista: se noti lacune nelle competenze disponibili, segnala la criticità invece di scegliere un nome arbitrario.\n"
             "Scrivi titoli e descrizioni in testo semplice, senza markdown o formattazioni (niente **grassetto**, *corsivo*, codice o simboli speciali).\n\n"
         )
+
+        # Aggiungi contesto delle task già esistenti nel progetto per evitare duplicazioni
+        existing_tasks = self.env['project.task'].search([('project_id', '=', self.id)])
+        if existing_tasks:
+            prompt += (
+                "IMPORTANTE: Il progetto ha già delle task esistenti. "
+                "NON duplicare le task già presenti. Genera SOLO task nuove e complementari.\n"
+                "Task esistenti nel progetto:\n"
+            )
+            for t in existing_tasks[:20]:  # Limita a 20 per non appesantire il prompt
+                prompt += f"- {t.name}\n"
+            prompt += "\n"
 
         if company_profile:
             prompt += (
